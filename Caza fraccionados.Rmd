@@ -1,0 +1,165 @@
+---
+title: "Caza de fraccionados Provinciales"
+author: "Idea: Lila, sistematizacion: Tomás"
+date: "18 de julio de 2019"
+output: html_document
+---
+
+```{r}
+library(sf)
+library(tidyverse)
+library(leaflet)
+library(hexbin)
+library(geojsonio)
+```
+
+
+```{r}
+departamentos<-read_sf("/Users/tdaels/Google Drive/0Trabajo/Nacion/Shapes/Departamentos/Departamentos_ARG.shp")
+CABA<-filter(departamentos,grepl("CIUDAD", provincia)) %>% 
+  select(cod_depto) %>% 
+  summarise(loc="CABA")
+st_crs(CABA)
+
+```
+
+```{r}
+ruta<-c("/Users/tdaels/Desktop/auziliar/GPS/geojson/")
+archivos<-as.data.frame(list.files(path = ruta ,pattern = c("geojson"))) # obtener listado de los archivos a comparar
+names(archivos)<-c("file") # cambiamos los nombres
+archivos<-mutate(archivos, Linea = parse_number(file)) %>% 
+  arrange(Linea)# obtener el ID.LINEA.BO
+
+#gps_148<-read_sf("/Users/tdaels/Desktop/auziliar/GPS/148.geojson") %>% 
+  #st_join(CABA)
+
+
+```
+
+```{r}
+Serv_Tot<-function(A){
+  A %>% 
+  as.data.frame() %>% 
+  select(s_id) %>%
+  unique()
+}
+
+Serv_CABA<-function(A){
+  A %>% 
+  filter(!is.na(loc)) %>% 
+  as.data.frame() %>%
+  select(s_id) %>% 
+  unique()
+  }
+
+Serv_no_CABA<-function(A){
+    A%>% 
+  filter(is.na(loc)) %>%
+  as.data.frame() %>% 
+  select(s_id) %>% 
+  unique()
+  }
+
+
+
+#Serv_CABA_PBA<-filter(Serv_no_CABA,s_id %in%serv_CABA$s_id )
+
+#Serv_fracc_prov<-anti_join(Serv_no_CABA,Serv_CABA_PBA)
+
+#gps_serv_fracc<-filter(gps_148, s_id%in%Serv_fracc_prov$s_id)
+
+#gps_serv_fracc_2<-mutate(gps_serv_fracc,lon = st_coordinates(gps_serv_fracc)[,1],
+ #           lat = st_coordinates(gps_serv_fracc)[,2]) %>% 
+  #select(g_hour,g_dayOfM, s_id,lon, lat) %>% 
+  #filter(lon<0, !is.na(lon))
+```
+
+```{r}
+
+Caza_fraccionados<- function(x) {
+  arch<-paste0(ruta,archivos[x,1])
+    GPS<-read_sf(arch) %>% 
+      st_join(CABA)
+    serv_tot<-Serv_Tot(GPS)
+    serv_caba<-Serv_CABA(GPS)
+    serv_fuera_caba<-Serv_no_CABA(GPS)
+    Serv_CABA_PBA<-filter(serv_fuera_caba,s_id %in%serv_caba$s_id ) #selecciona los que ids que se encuentran en PBA y ademas están en CABA 
+    Serv_fracc_prov<-anti_join(serv_fuera_caba,Serv_CABA_PBA) #nos quedamos con los ids que no estan en CABA
+    gps_serv_fracc<-filter(GPS, s_id%in%Serv_fracc_prov$s_id) #filtramos los puntos GPS que se corresponden con estos ids
+
+    salida <- data_frame(Linea = archivos[x,2], 
+                      Servicios_totales = as.numeric(count(serv_tot)),
+                      Servicios_fraccionados_PBA = as.numeric(count(Serv_fracc_prov)),
+                      pct_fuera = Servicios_fraccionados_PBA/Servicios_totales*100)
+    write_sf(gps_serv_fracc, paste0(ruta,"fraccionado_prov/fracc_pba_",archivos[x,1]))    
+    return(salida)
+   print("Cazar fraccionados es una actividad responsable")
+}
+
+
+Caza_fraccionados_rev<- function(x) {
+  arch<-paste0(ruta,archivos[x,1])
+    GPS<-read_sf(arch) %>% 
+      st_join(CABA)
+    serv_tot<-Serv_Tot(GPS)
+    serv_caba<-Serv_CABA(GPS)
+    serv_fuera_caba<-Serv_no_CABA(GPS)
+    Serv_CABA_PBA<-filter(serv_fuera_caba,s_id %in%serv_caba$s_id ) #selecciona los que ids que se encuentran en PBA y ademas están en CABA 
+    Serv_fracc_prov<-anti_join(serv_fuera_caba,Serv_CABA_PBA) #nos quedamos con los ids que no estan en CABA
+    gps_serv_fracc<-filter(GPS, s_id%in%Serv_fracc_prov$s_id) #filtramos los puntos GPS que se corresponden con estos ids
+
+    salida <- data_frame(Linea = archivos[x,2], 
+                      Servicios_totales = as.numeric(count(serv_tot)),
+                      Servicios_fraccionados_PBA = as.numeric(count(Serv_fracc_prov)),
+                      pct_fuera = Servicios_fraccionados_PBA/Servicios_totales*100)
+    return(salida)
+   print("Cazar fraccionados es una actividad responsable")
+}
+
+n<-c(1:134) %>% as.data.frame()
+  names(n)<-("n")
+
+todos <- map_df(n$n, Caza_fraccionados_rev)
+write.csv2(todos, "fraccionados_PBA.csv")
+
+```
+
+
+```{r}
+arch<-paste0(ruta,archivos[x,1])
+    GPS<-read_sf(arch) %>% 
+      st_join(CABA)
+    serv_tot<-Serv_Tot(GPS)
+    serv_caba<-Serv_CABA(GPS)
+    serv_fuera_caba<-Serv_no_CABA(GPS)
+    Serv_CABA_PBA<-filter(serv_fuera_caba,s_id %in%serv_caba$s_id ) #selecciona los que ids que se encuentran en PBA y ademas están en CABA 
+    Serv_fracc_prov<-anti_join(serv_fuera_caba,Serv_CABA_PBA) #nos quedamos con los ids que no estan en CABA
+    gps_serv_fracc<-filter(GPS, s_id%in%Serv_fracc_prov$s_id) #filtramos los puntos GPS que se corresponden con estos ids
+
+```
+
+
+```{r}
+ggplot()+ geom_sf(data=CABA, fill="red", alpha=0.5) + 
+  geom_hex(data=gps_serv_fracc_2, aes(lon, lat), bins=20, alpha=.75)+
+  scale_fill_viridis_c(option = "D",  na.value = "transparent", direction = 1, begin = 0, end= 1, limits = c(10,1000)) +
+  labs(title = "Validaciones",
+       subtitle = "Argentina",
+       fill = "cantidad") +
+  geom_point(data=gps_serv_fracc_2,aes(x = lon,y = lat), color="orange", alpha=0.01) 
+  
+  
+  
+```
+```{r}
+leaflet() %>%
+  addTiles() %>%  # Add default OpenStreetMap map tiles
+  addCircles(gps_serv_fracc_2$lon,gps_serv_fracc_2$lat,opacity = 0.01 , color= "red")  
+```
+
+
+```{r}
+write_sf(gps_serv_fracc, "/Users/tdaels/Desktop/auziliar/gps_serv_fracc.geojson")
+
+```
+
