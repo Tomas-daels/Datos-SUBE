@@ -50,12 +50,18 @@ GPS<- st_as_sf(GPS, coords = c("longitude", "latitude"), crs = 4326)
 ```
 
 ```{r Vias principales}
-vias<- read_sf("/Google Drive/00 Trabajo/MOP/DPIT/shapes/Vial/Propuesta Primaria/PRIMARIA_TRAMOS_BUSES/PRIMARIA_TRAMOS_BUSES.shp")
+vias<- read_sf("/Google Drive/00 Trabajo/MOP/DPIT/shapes/Vial/Propuesta Primaria/PRIMARIA_TRAMOS_BUSES_/PRIMARIA_TRAMOS_BUSES_.shp")
+vias_sep<-mutate(vias, BUS=paste(BUS_NAC,",",BUS_PROV,",",BUS_MUN)) %>% 
+  separate_rows(BUS, sep = ",") %>% 
+  mutate(BUS=as.numeric(BUS)) %>% 
+  filter(!is.na(BUS)) %>% 
+  as.data.frame() %>% 
+  select(BUS, IDTRAMO)
 
 st_crs(vias)
 
 vias<-st_transform(vias,5348)
-st_node(vias)
+
 
 buffer<-filter(vias,red_RMBA=="primaria") %>% 
                st_buffer(25) %>% 
@@ -83,6 +89,18 @@ primeros<-function(A){
 ```{r}
 gps_primeros<-primeros(gps_principales)
 gps_primeros<- mutate(gps_primeros, hora=hour(date_time))
+
+REL<-read_delim("~/Datos Para OD/Otros/Relacion_Empresa-Linea.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+
+REL<-mutate(REL,LINEA=parse_number(REL$LINEA)) %>% 
+  filter(!is.na(LINEA)) %>% 
+  select(ID_LINEA,LINEA)
+gps_primeros<-left_join(gps_primeros,REL, by=c("idlinea"="ID_LINEA"))
+
+gps_primeros_union<-left_join(gps_primeros,vias_sep)
+
+gps_primeros_union<-filter(gps_primeros_union, BUS==LINEA)
 ```
 
 
@@ -91,7 +109,7 @@ gps_primeros<- mutate(gps_primeros, hora=hour(date_time))
 ### exportacion
 
 ```{r}
-write_sf(gps_primeros,"/Documentos/Datos Para OD/GPS/2019_06_13_primeros_2.geojson")
+write_sf(gps_primeros_union,"/Documentos/Datos Para OD/GPS/2019_06_13_primeros_3.geojson")
 
 ```
 
@@ -104,3 +122,17 @@ Vamos a hacer lo siguiente:
 1 vamos a armar un registro para cada par tramo-linea
 2 vamos a hacer un join entre los puntos y los tramos
 3 filtramos aquellos que coincida linea con 
+```{r}
+servicios_hora<-as.data.frame(gps_primeros_union) %>% 
+                group_by(IDTRAMO,hora) %>% 
+                summarise(ser_hora=n())
+
+servicios_dia<-as.data.frame(gps_primeros_union) %>% 
+                group_by(IDTRAMO) %>% 
+                summarise(ser_dia=n())
+
+write_csv(servicios_dia, "/Google Drive/00 Trabajo/MOP/DPIT/Red Metropolitana de infra/ser_dia_tramos.csv")
+
+write_csv(servicios_hora, "/Google Drive/00 Trabajo/MOP/DPIT/Red Metropolitana de infra/ser_hora_tramos.csv")
+```
+
