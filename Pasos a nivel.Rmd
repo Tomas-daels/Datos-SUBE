@@ -54,27 +54,26 @@ GPS<- st_as_sf(GPS, coords = c("longitude", "latitude"), crs = 4326)
 ```
 
 ```{r Vias principales}
-PAN<- read_sf("/Google Drive/00 Trabajo/MOP/DPIT/shapes/Ferrocarril/PAN/Pasos a nivel.geojson")
+PAN<- read_sf("/Users/Tomas/Google Drive/00 Trabajo/MOP/DPIT/shapes/Ferrocarril/PAN/Pasos a nivel.geojson")
+
+Buses<-read_sf("../Transporte_AMBA/Recorridos/Recorridos_Bus_Amba.shp")
+
+# ggplot()+
+#   geom_sf(Buses, aes(size=2))+
+#   geom_sf(PAN, aes(size=4))
 
 
+Buffer_PAN_1<-st_buffer(PAN,500) #Buffer para contar posiciones GPS en el entorno
+Buffer_PAN<- st_buffer(PAN,50) %>%  #buffer para encontrar las lineas que pasaan por el entorno del PAN
+  st_transform(5346)
 
+```
+```{r}
+buses_PAN<- st_intersection(Buffer_PAN,Buses)
 
-vias_sep<-mutate(vias, BUS=paste(BUS_NAC,",",BUS_PROV,",",BUS_MUN)) %>% #agrupamos en un solo campo todos los buses
+st_crs(Buses)
 
-  separate_rows(BUS, sep = ",") %>% #los separamos en registros distintos 
-  mutate(BUS=as.numeric(BUS)) %>%   #transformamos el valor de BUS a un numero
-  filter(!is.na(BUS)) %>%           #filtramos los que tienen valores nulos
-  as.data.frame() %>%               #guardamos como data frame
-  select(BUS, IDTRAMO)              #nos quedamos con los campos que nos interesan.
-
-st_crs(vias)
-
-vias<-st_transform(vias,5348)   #llevamos a una proyeccion en metros
-
-
-buffer<-filter(vias,red_RMBA=="primaria") %>%  #armamos los buffers
-               st_buffer(25) %>% 
-                st_transform(4326)  #volvemos a la proyeccion anterior
+Buses<-st_transform(Buses, 5346)
 
 ```
 

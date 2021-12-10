@@ -12,6 +12,7 @@ options(scipen = 999)
 
 ## Librerías
 
+
 Aca simplemente cargamos las librerias que vamos a ir usando:
 
 ```{r librerias, include=FALSE}
@@ -27,13 +28,15 @@ library(units)
 
 ## Datos
 
-Estamos probando con datos de SUBE de una semana de Junio del 2019
+Estamos probando con datos de gestion de flota, son datos que se comparten por la API de la ciudad.
 ```{r datos, echo=FALSE}
 
-fecha<-"2021-06-30"
-ruta_archivo<-(sprintf("/Documentos/api_transporte/datos/%s/", fecha))
+fecha<-"2021-07-01"
+ruta_archivo<-(sprintf("/Users/Tomas/Documents/api_transporte/datos/%s/", fecha))
 
-GPS <- read_rds(sprintf("%sagrupado.rds",ruta_archivo))
+# GPS <- read_rds(sprintf("%sagrupado.rds",ruta_archivo))
+GPS<-read_rds("/Users/Tomas/Documents/api_transporte/2021-07-01/agrupado.rds")
+
 GPS<-mutate(GPS,fecha = as.POSIXct(timestamp, origin="1970-01-01")) #reinterpretamos la fecha y hora del timestamp
 GPS<-unique(GPS)
 GPS<-st_as_sf(GPS, coords = c("longitude", "latitude"), crs =4326 )
@@ -41,7 +44,7 @@ GPS<-st_as_sf(GPS, coords = c("longitude", "latitude"), crs =4326 )
 
 
 ```{r Vias principales}
-vias<- read_sf("/Google Drive/00 Trabajo/MOP/DPIT/shapes/Vial/Propuesta Primaria/RED_PRIMARIA_TRAMOS_/RED_PRIMARIA_TRAMOS_.shp")
+vias<- read_sf("/Users/Tomas/Google Drive/00 Trabajo/MOP/DPIT/shapes/Vial/Propuesta Primaria/RedPrimariaDisuelta.geojson ")
 
 vias_sep<-mutate(vias, BUS=paste(BUS_NAC,",",BUS_PROV,",",BUS_MUN)) %>% #agrupamos en un solo campo todos los buses
 
@@ -69,7 +72,7 @@ gps_principales<- mutate(gps_principales, linea= parse_number(route_short_name))
   unique()
 
 #filtramos y nos quedamos solo con las columnas que nos sirven, o creemos que nos puedan servir
-# #hacemos que la columna date time este parseada como fecha 
+# hacemos que la columna date time este parseada como fecha 
 # gps_principales<-mutate(gps_principales, date_time==date(date_time))
 ```
 Hacemos una funcion que nos permita quedarnos solamente con el primer registro de los colectivos que entran a un buffer, por defecto considera que si no aparece por 20 minutos la próxima vez que aparezca va a ser un nuevo servicio.
